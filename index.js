@@ -1,6 +1,5 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
-const { EmbedBuilder } = require('discord.js'); // Embed için gerekli
 
 const client = new Client({ 
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] 
@@ -63,39 +62,6 @@ client.on('messageCreate', async (msg) => {
     } catch (e) {
         console.error(e);
         msg.reply('Error: Could not fetch profile.');
-    }
-});
-
-client.on('messageCreate', async (msg) => {
-    if (msg.author.bot || !msg.content.startsWith('.lovezugii')) return;
-
-    const targetId = "1453417168489418925"; // Discord User ID
-
-    try {
-        // 1. Kullanıcıyı çek
-        const user = await client.users.fetch(targetId);
-        const avatarUrl = user.displayAvatarURL({ dynamic: true, size: 512 });
-        const username = user.username;
-
-        // 2. Embed tasarımı
-        const embed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle(`Seni çok seviyorum ${username}! ❤️`)
-            .setThumbnail(avatarUrl);
-
-        // 3. Güvenli spam (10 kez, 1 saniye arayla)
-        let count = 0;
-        const interval = setInterval(() => {
-            if (count >= 10) {
-                clearInterval(interval);
-                return;
-            }
-            msg.channel.send({ embeds: [embed] });
-            count++;
-        }, 1200); // Discord'un banlamaması için 1.2 saniye yaptım
-
-    } catch (e) {
-        msg.reply("Bu ID'ye sahip bir kullanıcıyı çekemedim. Botun o kişiyi görmesi gerekiyor.");
     }
 });
 
