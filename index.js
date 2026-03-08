@@ -17,60 +17,49 @@ client.once('ready', () => {
 client.on('messageCreate', async (msg) => {
     if (msg.author.bot || !msg.content.startsWith('.rprofile')) return;
 
-    const args = msg.content.split(' ');
-    const target = args[1];
-
+    const target = msg.content.split(' ')[1];
     if (!target) return msg.reply('Usage: `.rprofile <username/userid>`');
 
     try {
+        // 1. ID'yi Çöz
         let userId = target;
-
-        // 1. Username girildiyse ID'ye çevir
         if (isNaN(target)) {
-            const userRes = await axios.post('https://users.roblox.com/v1/usernames/users', {
-                usernames: [target],
-                excludeBannedUsers: false
-            });
+            const userRes = await axios.post('https://users.roblox.com/v1/usernames/users', { usernames: [target] });
             if (userRes.data.data.length === 0) return msg.reply('User not found!');
             userId = userRes.data.data[0].id;
         }
 
-        // 2. Roblox Bilgilerini Çek
-        const infoRes = await axios.get(`https://users.roblox.com/v1/users/${userId}`);
+        // 2. Verileri Paralel Çek (Hız için)
+        const [infoRes, thumbRes, roliRes] = await Promise.all([
+            axios.get(`https://users.roblox.com/v1/users/${userId}`),
+            axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png`),
+            axios.get(`https://api.rolimons.com/players/v1/playerinfo/${userId}`).catch(() => ({ data: null }))
+        ]);
+
         const data = infoRes.data;
+        const avatarUrl = thumbRes.data.data[0].imageUrl;
+        const roliData = roliRes.data;
 
-        // 3. Rolimons'dan Ekonomi (RAP) Verilerini Çek
-        let rap = "Private/N/A";
-        let topItems = "None";
-        try {
-            const rolimonsRes = await axios.get(`https://api.rolimons.com/players/v1/playerinfo/${userId}`);
-            if (rolimonsRes.data.success) {
-                rap = rolimonsRes.data.value.toLocaleString();
-                // Envanterdeki ilk 3 öğeyi al
-                topItems = rolimonsRes.data.inventory_name_list ? rolimonsRes.data.inventory_name_list.slice(0, 3).join(', ') : "None";
-            }
-        } catch (err) {
-            console.log("Rolimons data unavailable.");
-        }
-
-        // 4. Embed Tasarımı
-        const profileEmbed = new EmbedBuilder()
-            .setColor('#0099ff')
+        // 3. Embed Oluştur
+        const embed = new EmbedBuilder()
+            .setColor('#00ff00')
             .setTitle(`${data.displayName} (@${data.name})`)
+            .setThumbnail(avatarUrl)
             .setURL(`https://www.roblox.com/users/${userId}/profile`)
             .addFields(
                 { name: 'User ID', value: `\`${userId}\``, inline: true },
-                { name: 'Join Date', value: new Date(data.created).toLocaleDateString('en-US'), inline: true },
-                { name: 'RAP (Rolimons)', value: `\`${rap}\``, inline: true },
-                { name: 'Notable Items', value: topItems, inline: false },
-                { name: 'About', value: data.description || 'No description.' }
+                { name: 'Join Date', value: new Date(data.created).toLocaleDateString(), inline: true },
+                { name: 'RAP', value: roliData ? `\`${roliData.value.toLocaleString()}\`` : 'N/A', inline: true },
+                { name: 'Value', value: roliData ? `\`${roliData.rank.toLocaleString()}\`` : 'N/A', inline: true },
+                { name: 'Premium', value: data.isBanned ? 'Yes' : 'No', inline: true }, // Not: Banned değil Premium durumu
+                { name: 'Top Items', value: roliData && roliData.inventory_name_list ? roliData.inventory_name_list.slice(0, 5).join(', ') : 'Private or None' }
             )
-            .setTimestamp();
+            .setFooter({ text: 'Roblox & Rolimons Data' });
 
-        msg.reply({ embeds: [profileEmbed] });
+        msg.reply({ embeds: [embed] });
 
-    } catch (error) {
-        msg.reply('An error occurred while fetching the profile.');
+    } catch (e) {
+        msg.reply('Error fetching profile. Check if username is correct.');
     }
 });
 
