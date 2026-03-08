@@ -13,6 +13,7 @@ client.once('ready', () => {
     console.log(`Bot is online and ready!`);
 });
 
+
 client.on('messageCreate', async (msg) => {
     if (msg.author.bot) return;
 
@@ -67,4 +68,11 @@ client.on('messageCreate', async (msg) => {
     }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+
+if (!process.env.DISCORD_TOKEN) {
+    console.error("ERROR: DISCORD_TOKEN is not defined in Railway Variables!");
+} else {
+    client.login(process.env.DISCORD_TOKEN).catch(err => {
+        console.error("Login failed:", err.message);
+    });
+}
