@@ -8,24 +8,19 @@ const client = new Client({
 client.on('messageCreate', async (msg) => {
     if (msg.author.bot || !msg.content.startsWith('.rprofile')) return;
 
-    const args = msg.content.split(' ');
-    const target = args[1];
+    const target = msg.content.split(' ')[1];
     if (!target) return msg.reply('Usage: `.rprofile <username/userid>`');
 
     try {
+        // 1. Kullanıcıyı Bul
         let userId = target;
-
-        // 1. ID mi yoksa Username mi olduğunu kontrol et ve ID'yi al
         if (isNaN(target)) {
-            const userRes = await axios.post('https://users.roblox.com/v1/usernames/users', {
-                usernames: [target],
-                excludeBannedUsers: false
-            });
+            const userRes = await axios.post('https://users.roblox.com/v1/usernames/users', { usernames: [target] });
             if (!userRes.data.data || userRes.data.data.length === 0) return msg.reply('User not found!');
             userId = userRes.data.data[0].id;
         }
 
-        // 2. Verileri çek
+        // 2. Verileri Çek
         const [infoRes, thumbRes] = await Promise.all([
             axios.get(`https://users.roblox.com/v1/users/${userId}`),
             axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png&isCircular=false`)
@@ -34,18 +29,20 @@ client.on('messageCreate', async (msg) => {
         const data = infoRes.data;
         const avatarUrl = thumbRes.data.data[0].imageUrl;
 
-        // 3. Rolimons verisini ayrı dene (hata alsa bile profil görünsün)
-        let rap = "N/A", value = "N/A", topItems = "Private or None";
+        // 3. Rolimons'dan Veri Çek (Doğru API Yolu)
+        let rap = "N/A", value = "N/A", topItems = "None";
         try {
+            // Rolimons verileri 'data' objesinin içindedir
             const roliRes = await axios.get(`https://api.rolimons.com/players/v1/playerinfo/${userId}`);
             if (roliRes.data.success) {
-                rap = roliRes.data.value ? roliRes.data.value.toLocaleString() : "0";
-                value = roliRes.data.rank ? roliRes.data.rank.toLocaleString() : "0";
-                topItems = roliRes.data.inventory_name_list ? roliRes.data.inventory_name_list.slice(0, 3).join(', ') : "None";
+                const p = roliRes.data;
+                rap = p.rap ? p.rap.toLocaleString() : "0";
+                value = p.value ? p.value.toLocaleString() : "0";
+                topItems = p.inventory_name_list ? p.inventory_name_list.slice(0, 3).join(', ') : "None";
             }
-        } catch (e) { console.log("Rolimons API unreachable"); }
+        } catch (e) { console.log("Rolimons API error"); }
 
-        // 4. Embed Hazırla
+        // 4. Embed ile Göster
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
             .setTitle(`${data.displayName} (@${data.name})`)
@@ -63,8 +60,8 @@ client.on('messageCreate', async (msg) => {
         msg.reply({ embeds: [embed] });
 
     } catch (e) {
-        console.error("HATA:", e.response ? e.response.data : e.message);
-        msg.reply('Error: Could not fetch data. Make sure the username is correct.');
+        console.error(e);
+        msg.reply('Error: Could not fetch profile.');
     }
 });
 
